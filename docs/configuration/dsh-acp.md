@@ -71,7 +71,8 @@ DSH 的 `read-only` **不是** bridge 意义上的强只读隔离：实测仍可
 
 | 能力 | 支持 | 说明 |
 |---|---|---|
-| 流式文本 / 思考 / 工具 / 用量 | ✅ | `session/update` → 卡片 |
+| 流式文本 / 工具 / 用量 | ✅ | `session/update` → 卡片 |
+| 思考过程 | 默认隐藏 | DSH 的 `agent_thought_chunk` 是原始 CoT，默认不推进卡片；设 `DSH_SHOW_THINKING=1` 可恢复（调试用） |
 | 续聊 / 重启恢复 | ✅ | `session/resume` 保留上下文 |
 | ⏹ 终止 | ✅ | `session/cancel` |
 | 文件交付 / 图片引用 | ✅ | 复用桥的本地文件交付；**图片输入不支持**（ACP `image:false`，降级为文字路径） |
@@ -105,6 +106,7 @@ DSH 的 `read-only` **不是** bridge 意义上的强只读隔离：实测仍可
 | `DSH_HOME` | DSH 配置/会话根（默认 `~/.dsh`） |
 | `DSH_PERMISSION_MODE` | 由适配器按项目档位设置；不要手工覆盖 |
 | `DEEPSEEK_API_KEY` | 使用 `deepseek-official` 路由时的 API key |
+| `DSH_SHOW_THINKING` | 设为 `1` 时把 DSH 的 `agent_thought_chunk` 显示在过程面板；默认隐藏 |
 
 ---
 

@@ -46,7 +46,7 @@ describe('AcpClient + DshAcpThread over a fake ACP agent', () => {
   it('streams text, thought, tool and context events, then done', async () => {
     const cwd = tempCwd();
     const { client, sessionId } = await connect(cwd);
-    const thread = new DshAcpThread({ sessionId, cwd, client });
+    const thread = new DshAcpThread({ sessionId, cwd, client, showThinking: true });
 
     const events = await collect(thread.runStreamed({ text: 'hello' }));
 
@@ -77,6 +77,21 @@ describe('AcpClient + DshAcpThread over a fake ACP agent', () => {
 
     await thread.close();
     expect(thread.isAlive()).toBe(false);
+  });
+
+  it('hides chain-of-thought by default while keeping the answer and tools', async () => {
+    const cwd = tempCwd();
+    const { client, sessionId } = await connect(cwd);
+    const thread = new DshAcpThread({ sessionId, cwd, client });
+
+    const events = await collect(thread.runStreamed({ text: 'hello' }));
+
+    expect(events.some((event) => event.type === 'thinking_delta')).toBe(false);
+    expect(events).toContainEqual({ type: 'text_delta', itemId: 'msg-1', delta: 'hello ' });
+    expect(events.some((event) => event.type === 'tool_use')).toBe(true);
+    expect(events.at(-1)).toEqual({ type: 'done', turnId: 'dsh-1' });
+
+    await thread.close();
   });
 
   it('rejects sandbox escalation permission requests by default', async () => {

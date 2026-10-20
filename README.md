@@ -68,7 +68,7 @@ feishu-codex-bridge web
 ## ✨ 特性
 
 - **群 = 项目，话题 = 会话**：每个群绑定一个本地目录；群里 @ 机器人就在该目录跑 agent。对某条消息开话题 = 一条独立连续会话（自动 resume）。
-- **三种后端**：**Codex**（能力最全：goal / steer / compact / resume + 真沙箱只读档）、**Claude Code**（SDK 内置、复用本机登录、能力较精简）或 **DeepSeek Harness**（自带 ACP server，复用 DSH 桌面登录；支持弱只读/项目内读写/完全访问，无 goal/steer/compact）。建项目时按需选，同一台机可混用。详见 [DSH 后端说明](docs/configuration/dsh-acp.md)。
+- **三种后端**：**Codex**（能力最全：goal / steer / compact / resume + 真沙箱只读档）、**Claude Code**（SDK 内置、复用本机登录、能力较精简）或 **DeepSeek Harness**（自带 ACP server，复用 DSH 桌面登录；支持弱只读/项目内读写/完全访问，默认隐藏思考过程，无 goal/steer/compact）。建项目时按需选，同一台机可混用。详见 [DSH 后端说明](docs/configuration/dsh-acp.md)。
 - **流式卡片**：思考摘要、进度和工具按时间顺序展示，连续工具分组折叠，展开后查看完整命令。卡片接近容量限制时先省略大段工具输出并保留操作；极端长度下显示明确的省略数量。运行中显示耗时，完成后收起过程、突出回答。⏹ 随时终止，卡死有 watchdog 自动回收。
 - **运行中补充要求**：使用引导（steer）时，消息确认接收后创建新输出卡片，旧卡保留此前内容，后续输出在新卡继续；同一个 agent turn 持续执行。排队模式及不支持 steer 的后端仍在下一轮处理。[行为与验收说明](docs/testing/run-card-steer.md)。
 - **免 @ + 自主目标**：话题 / 单会话群里可直接说话不必每次 @；`/goal <目标>` 让它自主多轮干到完成。

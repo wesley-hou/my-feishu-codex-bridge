@@ -200,6 +200,7 @@ export class DshAcpBackend implements AgentBackend {
         model: applied.model,
         effort: applied.effort,
         injectInstructions: true,
+        showThinking: showDshThinking(),
       });
     } catch (err) {
       await client.close().catch(() => undefined);
@@ -232,6 +233,7 @@ export class DshAcpBackend implements AgentBackend {
         model: applied.model ?? opts.model,
         effort: applied.effort ?? opts.effort,
         injectInstructions: false,
+        showThinking: showDshThinking(),
       });
     } catch (err) {
       await client.close().catch(() => undefined);
@@ -363,6 +365,11 @@ export class DshAcpBackend implements AgentBackend {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** DSH chain-of-thought is hidden by default; opt in only for debugging. */
+function showDshThinking(): boolean {
+  return process.env.DSH_SHOW_THINKING === '1';
 }
 
 function hasDshCredentials(): boolean {

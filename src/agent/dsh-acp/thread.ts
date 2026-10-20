@@ -24,6 +24,12 @@ export interface DshThreadConfig {
   effort?: ReasoningEffort;
   /** New sessions only: prepend the bridge's Feishu output conventions once. */
   injectInstructions?: boolean;
+  /**
+   * Forward ACP `agent_thought_chunk` to the card. Default false: DSH's
+   * chain-of-thought is verbose and noisy in Feishu; the final answer and tool
+   * groups are enough. Set DSH_SHOW_THINKING=1 for debugging.
+   */
+  showThinking?: boolean;
 }
 
 type TurnItem = AgentEvent | '__end__';
@@ -73,6 +79,7 @@ export class DshAcpThread implements AgentThread {
   private readonly client: AcpClient;
   private readonly cwd: string;
   private readonly injectInstructions: boolean;
+  private readonly showThinking: boolean;
   private model: string | undefined;
   private effort: ReasoningEffort | undefined;
   private instructionsSent = false;
@@ -90,6 +97,7 @@ export class DshAcpThread implements AgentThread {
     this.model = cfg.model;
     this.effort = cfg.effort;
     this.injectInstructions = cfg.injectInstructions === true;
+    this.showThinking = cfg.showThinking === true;
 
     this.client.onUpdate = (update) => this.handleUpdate(update);
     this.client.onExit = (code, signal) => this.handleExit(code, signal);
@@ -203,6 +211,12 @@ export class DshAcpThread implements AgentThread {
     const active = this.active;
     if (!active || active.ended) return;
     for (const event of active.mapper.map(update)) {
+      // DSH's thoughts are raw chain-of-thought ("The user asks...", "Let me
+      // search...") — useful for a terminal, noise in a Feishu card. Hide them
+      // by default; the final answer and tool activity remain.
+      if (!this.showThinking && (event.type === 'thinking_delta' || event.type === 'thinking')) {
+        continue;
+      }
       active.sink(event);
     }
   }

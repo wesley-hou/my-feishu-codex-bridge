@@ -125,4 +125,43 @@ describe.skipIf(!LIVE)('DSH ACP live smoke', () => {
     },
     180_000,
   );
+
+  it(
+    'hides chain-of-thought while streaming a real reasoning turn in weak qa mode',
+    async () => {
+      const backend = new DshAcpBackend();
+      const probe = await backend.doctor({ force: true });
+      expect(probe.ok, probe.hint).toBe(true);
+      const models = await backend.listModels();
+      const model =
+        models.find((entry) => entry.id.startsWith('deepseek-account/'))?.id ?? models[0]?.id;
+      expect(model, 'no DSH model advertised').toBeTruthy();
+
+      // qa = weak read-only: enough to read the repo, cannot write.
+      const thread = await backend.startThread({
+        cwd: process.cwd(),
+        mode: 'qa',
+        model,
+        effort: 'high',
+      });
+      try {
+        const events = await collect(
+          thread.runStreamed({
+            text: '先简要思考一下，再用三句话说明这个仓库的 agent 后端架构。',
+          }).events,
+        );
+        const text = events
+          .filter((event): event is Extract<AgentEvent, { type: 'text_delta' }> => event.type === 'text_delta')
+          .map((event) => event.delta)
+          .join('');
+        expect(text.length).toBeGreaterThan(0);
+        expect(events.some((event) => event.type === 'thinking_delta')).toBe(false);
+        expect(events.some((event) => event.type === 'thinking')).toBe(false);
+        expect(events.at(-1)).toMatchObject({ type: 'done' });
+      } finally {
+        await thread.close();
+      }
+    },
+    180_000,
+  );
 });
