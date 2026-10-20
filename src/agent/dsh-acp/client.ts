@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'node:child_process';
 import type { Writable } from 'node:stream';
 import { createInterface, type Interface } from 'node:readline';
-import { spawnProcess } from '../../platform/spawn';
+import { killProcessGroup, spawnProcess } from '../../platform/spawn';
 import type {
   AcpClientOptions,
   AcpMessage,
@@ -79,6 +79,9 @@ export class AcpClient {
       cwd: opts.cwd,
       env: opts.env ?? process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // POSIX: make the child a process-group leader so a wedged dsh can be
+      // stopped with its descendants (killProcessGroup). Windows uses taskkill /T.
+      detached: process.platform !== 'win32',
     });
 
     const stdin = this.child.stdin;
@@ -227,19 +230,12 @@ export class AcpClient {
       /* ignore */
     }
     if (!(await this.waitExit(3_000))) {
-      try {
-        this.child.kill('SIGTERM');
-      } catch {
-        /* ignore */
-      }
-      if (!(await this.waitExit(2_000))) {
-        try {
-          this.child.kill('SIGKILL');
-        } catch {
-          /* ignore */
-        }
-        await this.waitExit(1_000);
-      }
+      // Escalate to the whole process group/tree: `dsh` may have spawned tool
+      // children that a single SIGTERM to the launcher would orphan.
+      await killProcessGroup(this.child.pid, () => this.dead || this.child.exitCode !== null, {
+        graceMs: 3_000,
+      });
+      await this.waitExit(1_000);
     }
     this.dead = true;
     this.failAll(new Error('DSH ACP 会话已关闭'));
