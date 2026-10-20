@@ -135,11 +135,11 @@ export const BACKEND_CATALOG: readonly BackendCatalogEntry[] = [
         '装 DeepSeek Harness 桌面版，或 npm i -g @deepseek-ai/dsh，然后确认 dsh --profile acp --help',
       locate: () => resolveDshBin(),
     },
-    // DSH 的 read-only 只限制写入、不限制读取/网络，无法满足 qa 的隔离承诺；
-    // 硬守卫在 DshAcpBackend.startThread/resumeThread（dshPermissionMode 抛错）。
-    supportedModes: ['write', 'full'],
+    // DSH 的 read-only 是「弱只读」：只挡写，不限制读取/网络。UI 会把它标成
+    // 「DSH 只读（弱）」并提示仅限内部可信群；真实读隔离请用容器/Codex。
+    supportedModes: ['qa', 'write', 'full'],
     blurb:
-      'DeepSeek Harness（ACP；项目内读写/完全访问，复用 DSH 登录；无 goal/steer/compact）',
+      'DeepSeek Harness（ACP；弱只读/项目内读写/完全访问，复用 DSH 登录；无 goal/steer/compact）',
   },
 ];
 

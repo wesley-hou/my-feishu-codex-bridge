@@ -34,12 +34,12 @@ describe.skipIf(!LIVE)('DSH ACP live smoke', () => {
       expect(await effectiveDefaultBackend({ force: true })).toBe('dsh-acp');
 
       // Same predicate the project picker uses: DSH must be selectable in the
-      // supported tiers (write/full), and not offered in qa.
+      // supported tiers (qa weak read-only / write / full).
       expect(isBackendEntryInstalled(catalogById('dsh-acp')!)).toBe(true);
       expect(projectCreatableBackends('write', isBackendEntryInstalled).map((e) => e.id)).toContain(
         'dsh-acp',
       );
-      expect(projectCreatableBackends('qa', isBackendEntryInstalled).map((e) => e.id)).not.toContain(
+      expect(projectCreatableBackends('qa', isBackendEntryInstalled).map((e) => e.id)).toContain(
         'dsh-acp',
       );
 

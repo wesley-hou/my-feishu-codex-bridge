@@ -940,15 +940,15 @@ ${UI_PURE_JS}
 
   // ── 文案（与 DM 卡片 src/card/dm-cards.ts 对齐）───────────────────────────
   function kindLabel(kind) { return kind === 'single' ? '💬 单会话群' : '👥 多话题群'; }
-  function tierLabel(m) {
-    if (m === 'qa') return '🔒 项目内只读';
+  function tierLabel(m, backend) {
+    if (m === 'qa') return backend === 'dsh-acp' ? '🔒 DSH 只读（弱）' : '🔒 项目内只读';
     if (m === 'write') return '✏️ 项目内读写';
     return '⚠️ 完全访问';
   }
   function permissionSummary(p) {
     return p.mode === p.guestMode
-      ? '所有人：' + tierLabel(p.mode)
-      : '管理员：' + tierLabel(p.mode) + ' · 其他人：' + tierLabel(p.guestMode);
+      ? '所有人：' + tierLabel(p.mode, p.backend)
+      : '管理员：' + tierLabel(p.mode, p.backend) + ' · 其他人：' + tierLabel(p.guestMode, p.backend);
   }
   function appendEventDiagnosis(parent, d, configUrl) {
     var view = eventDiagnosisView(d);
@@ -1572,7 +1572,7 @@ ${UI_PURE_JS}
         pt.appendChild(el('div', 'note', kindLabel(p.kind) + ' · ' + p.botName)).style.fontSize = '11.5px';
         pr.appendChild(pt);
         var psp = el('div'); psp.style.flex = '1'; pr.appendChild(psp);
-        pr.appendChild(el('span', 'tag ' + (p.mode === 'full' ? 'orange' : p.mode === 'write' ? 'green' : ''), tierLabel(p.mode)));
+        pr.appendChild(el('span', 'tag ' + (p.mode === 'full' ? 'orange' : p.mode === 'write' ? 'green' : ''), tierLabel(p.mode, p.backend)));
         var sc = el('span', 'note', (p.sessions || 0) + ' 话题'); sc.style.color = 'var(--text-3)'; pr.appendChild(sc);
         pcard.appendChild(pr);
       });
@@ -2423,9 +2423,13 @@ ${UI_PURE_JS}
 
     // 🔐 权限
     d.appendChild(el('div', null, '🔐 权限'));
-    d.appendChild(el('div', 'note', '当前 ' + permissionSummary(p) + ' · codex 沙箱可访问的范围（管理员 / 普通用户可分设）'));
+    d.appendChild(el('div', 'note', '当前 ' + permissionSummary(p) + ' · 后端沙箱可访问的范围（管理员 / 普通用户可分设）'));
+    var isDsh = p.backend === 'dsh-acp';
+    if (isDsh) {
+      d.appendChild(el('div', 'note', '⚠️ DSH 的「只读」是弱隔离：只挡写入，仍可读取项目外文件、仍可联网。仅建议内部可信群使用；需要真正读隔离时请用 Codex 或把 DSH 跑进容器。'));
+    }
     var tiers = [
-      { label: '🔒 项目内只读', value: 'qa' },
+      { label: isDsh ? '🔒 DSH 只读（弱）' : '🔒 项目内只读', value: 'qa' },
       { label: '✏️ 项目内读写', value: 'write' },
       { label: '⚠️ 完全访问', value: 'full' },
     ];

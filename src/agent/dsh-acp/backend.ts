@@ -43,10 +43,6 @@ const INSTALL_HINT =
   '未找到 dsh CLI。装 DeepSeek Harness 桌面版，或 npm i -g @deepseek-ai/dsh，' +
   '或设置 DSH_BIN 指向 dsh 可执行文件。';
 
-const READ_ONLY_UNSUPPORTED =
-  'DSH 后端不提供「项目内只读」档：其 read-only 沙箱只限制写入、不限制读取与网络，' +
-  '无法满足外部群隔离要求。请选择「项目内读写」或「完全访问」（后者仅限完全信任的场景）。';
-
 interface AppliedConfig {
   model?: string;
   effort?: ReasoningEffort;
@@ -58,12 +54,16 @@ interface AppliedConfig {
 export type DshClientFactory = (opts: AcpClientOptions) => AcpClient;
 
 /**
- * Map the bridge permission tier to DSH's sandbox mode. DSH only ships
- * read-only / workspace-write / danger-full-access; `qa` is intentionally
- * rejected (see READ_ONLY_UNSUPPORTED) rather than silently downgraded.
+ * Map the bridge permission tier to DSH's sandbox mode.
+ *
+ * `qa` maps to DSH's read-only mode, which is a WEAK tier: it denies file
+ * writes but does NOT confine reads or network (verified on macOS). The
+ * bridge's UI labels this backend's qa as「DSH 只读（弱）」; it is not a
+ * confidentiality boundary. Use write/full for trusted projects, or run DSH
+ * in a container when the project needs real read isolation.
  */
 export function dshPermissionMode(mode: PermissionMode | undefined): string {
-  if (mode === 'qa') throw new Error(READ_ONLY_UNSUPPORTED);
+  if (mode === 'qa') return 'read-only';
   if (mode === 'full') return 'danger-full-access';
   // undefined (legacy record) → the safer middle tier, not whole-machine access.
   return 'workspace-write';
@@ -85,6 +85,9 @@ export function dshPermissionMode(mode: PermissionMode | undefined): string {
  *             transcript/title, so the /resume picker is hidden.
  *   approvals — permission requests are rejected by default; a Feishu approval
  *             card would be a separate slice.
+ *   qa      — exposed as a WEAK read-only tier: writes are denied, but reads
+ *             outside the workspace and network egress stay open. The UI
+ *             labels it explicitly as「DSH 只读（弱）」.
  */
 export class DshAcpBackend implements AgentBackend {
   readonly id = 'dsh-acp';
@@ -96,8 +99,8 @@ export class DshAcpBackend implements AgentBackend {
     resume: false,
     approvals: false,
   };
-  /** qa is not supported because DSH's read-only mode does not confine reads. */
-  readonly supportedModes: readonly PermissionMode[] = ['write', 'full'];
+  /** qa is the weak read-only tier (writes denied; reads/network not confined). */
+  readonly supportedModes: readonly PermissionMode[] = ['qa', 'write', 'full'];
 
   private modelCache: ModelInfo[] | null = null;
 
@@ -240,8 +243,15 @@ export class DshAcpBackend implements AgentBackend {
     const bin = resolveDshBin();
     if (!bin) throw new Error(INSTALL_HINT);
 
+    const resolvedMode = dshPermissionMode(mode);
+    if (mode === 'qa') {
+      log.info('agent', 'dsh-weak-read-only', {
+        backend: 'dsh-acp',
+        note: 'DSH read-only denies writes but does not confine reads/network',
+      });
+    }
     const env = mergeProcessEnv(process.env, {
-      DSH_PERMISSION_MODE: dshPermissionMode(mode),
+      DSH_PERMISSION_MODE: resolvedMode,
       // Marks a bridge-owned session for any DSH skill/hook that cares; mirrors
       // the Claude/Codex backends' re-entrancy marker.
       FEISHU_CODEX_BRIDGE: '1',
@@ -266,7 +276,7 @@ export class DshAcpBackend implements AgentBackend {
         backend: 'dsh-acp',
         bin,
         cwd,
-        mode: env.DSH_PERMISSION_MODE,
+        mode: resolvedMode,
       });
       return client;
     } catch (err) {

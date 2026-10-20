@@ -1630,22 +1630,45 @@ const MODE_OPTS: { value: PermissionMode; label: string; desc: string }[] = [
   { value: 'full', label: '⚠️ 完全访问', desc: '能读写整台电脑上的任何文件' },
 ];
 
+/** DSH's qa is a weak tier: writes denied, reads/network NOT confined. */
+const DSH_BACKEND_ID = 'dsh-acp';
+
+function modeOptsFor(backend?: string): { value: PermissionMode; label: string; desc: string }[] {
+  if (backend !== DSH_BACKEND_ID) return MODE_OPTS;
+  return MODE_OPTS.map((o) =>
+    o.value === 'qa'
+      ? {
+          ...o,
+          label: '🔒 DSH 只读（弱）',
+          desc: '只挡写；不限制读取项目外文件与联网，仅建议内部可信群',
+        }
+      : o,
+  );
+}
+
+/** Backend-aware label (falls back to the generic tier label). */
+export function tierLabelFor(m: PermissionMode, backend?: string): string {
+  return modeOptsFor(backend).find((o) => o.value === m)?.label ?? m;
+}
+
 /** Short label for a tier (falls back to the raw value). Exported for the
  * backend-switch validation's rejection message (handle-message). */
 export function tierLabel(m: PermissionMode): string {
-  return MODE_OPTS.find((o) => o.value === m)?.label ?? m;
+  return tierLabelFor(m);
 }
 
 /** Tier dropdown options: "label — desc" so the meaning shows in the menu. */
-const TIER_SELECT_OPTS: SelectOption[] = MODE_OPTS.map((o) => ({ label: `${o.label} — ${o.desc}`, value: o.value }));
+function tierSelectOpts(backend?: string): SelectOption[] {
+  return modeOptsFor(backend).map((o) => ({ label: `${o.label} — ${o.desc}`, value: o.value }));
+}
 
 /** One-line summary of a project's tiers, for the 项目设置 card. */
-export function permissionSummary(p: Pick<Project, 'mode' | 'guestMode'>): string {
+export function permissionSummary(p: Pick<Project, 'mode' | 'guestMode'> & { backend?: string }): string {
   const admin = effectiveMode(p);
   const guest = effectiveGuestMode(p);
   return admin === guest
-    ? `所有人：${tierLabel(admin)}`
-    : `管理员：${tierLabel(admin)}　·　其他人：${tierLabel(guest)}`;
+    ? `所有人：${tierLabelFor(admin, p.backend)}`
+    : `管理员：${tierLabelFor(admin, p.backend)}　·　其他人：${tierLabelFor(guest, p.backend)}`;
 }
 
 /**
@@ -1654,23 +1677,34 @@ export function permissionSummary(p: Pick<Project, 'mode' | 'guestMode'>): strin
  * 则所有人一致。外加联网开关。用 selectMenu(表单收值、提交时才读、不锁卡)而非即时按钮——
  * 选完点提交；提交 handler 落盘 + 驱逐活跃会话让新档立刻生效。
  */
-export function buildPermissionCard(p: Pick<Project, 'name' | 'mode' | 'guestMode' | 'network'>): CardObject {
+export function buildPermissionCard(
+  p: Pick<Project, 'name' | 'mode' | 'guestMode' | 'network'> & { backend?: string },
+): CardObject {
   const network = p.network ?? false;
+  const weak = p.backend === DSH_BACKEND_ID;
   return card(
     [
       md(`**🔐 权限** · ${p.name}`),
       note(
-        'codex 沙箱的访问范围。「管理员档」给 owner / 管理员，「普通用户档」给群里其他人。' +
+        '后端沙箱的访问范围。「管理员档」给 owner / 管理员，「普通用户档」给群里其他人。' +
           '两档**不同**时，两类人各用独立线程（互不串沙箱与对话历史）；**相同**则所有人一致。',
       ),
+      ...(weak
+        ? [
+            note(
+              '⚠️ DSH 的「只读」是**弱隔离**：只挡写入，**仍可读取项目外文件、仍可联网**。' +
+                '仅建议内部可信群使用；需要真正读隔离时请用 Codex 或把 DSH 跑进容器。',
+            ),
+          ]
+        : []),
       form('perm', [
         md('👑 **管理员档**'),
-        selectMenu({ name: 'mode', placeholder: '选择管理员权限档', options: TIER_SELECT_OPTS, initial: effectiveMode(p) }),
+        selectMenu({ name: 'mode', placeholder: '选择管理员权限档', options: tierSelectOpts(p.backend), initial: effectiveMode(p) }),
         md('👥 **普通用户档**'),
         selectMenu({
           name: 'guestMode',
           placeholder: '选择普通用户权限档',
-          options: TIER_SELECT_OPTS,
+          options: tierSelectOpts(p.backend),
           initial: effectiveGuestMode(p),
         }),
         md('🌐 **联网**（只对只读 / 读写档有意义；完全访问恒联网）'),
@@ -1850,7 +1884,7 @@ export function buildProjectSettingsCard(
       note(`${kindLabel(kind)}${project.cwd ? `   ·   📂 \`${project.cwd}\`` : ''}`),
       hr(),
       actions([button('🔐 权限', { a: DM.permission, n: project.name }, 'primary')]),
-      note(`当前 ${permissionSummary(project)}　·　codex 沙箱可访问的范围（管理员 / 普通用户可分设）。`),
+      note(`当前 ${permissionSummary(project)}　·　后端沙箱可访问的范围（管理员 / 普通用户可分设）。`),
       hr(),
       md('🧠 后端'),
       note(

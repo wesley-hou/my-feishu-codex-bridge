@@ -41,17 +41,17 @@ async function collect(events: AsyncIterable<AgentEvent>): Promise<AgentEvent[]>
 }
 
 describe('DshAcpBackend', () => {
-  it('maps bridge permission tiers to DSH sandbox modes and rejects qa', () => {
+  it('maps bridge permission tiers to DSH sandbox modes, including the weak read-only tier', () => {
+    expect(dshPermissionMode('qa')).toBe('read-only');
     expect(dshPermissionMode('write')).toBe('workspace-write');
     expect(dshPermissionMode('full')).toBe('danger-full-access');
     expect(dshPermissionMode(undefined)).toBe('workspace-write');
-    expect(() => dshPermissionMode('qa')).toThrow(/只读/);
   });
 
   it('reports the mocked dsh CLI as installed', async () => {
     const backend = makeBackend();
     expect(backend.id).toBe('dsh-acp');
-    expect(backend.supportedModes).toEqual(['write', 'full']);
+    expect(backend.supportedModes).toEqual(['qa', 'write', 'full']);
     expect(backend.capabilities).toEqual({
       goal: false,
       steer: false,
@@ -121,10 +121,14 @@ describe('DshAcpBackend', () => {
     }
   });
 
-  it('fails closed for the unsupported qa tier before spawning', async () => {
+  it('starts the weak read-only tier without an approval hard-fail', async () => {
     const backend = makeBackend();
-    await expect(
-      backend.startThread({ cwd: tempDir(), mode: 'qa' }),
-    ).rejects.toThrow(/只读/);
+    const thread = await backend.startThread({ cwd: tempDir(), mode: 'qa' });
+    try {
+      const events = await collect(thread.runStreamed({ text: 'hello' }).events);
+      expect(events.some((event) => event.type === 'done')).toBe(true);
+    } finally {
+      await thread.close();
+    }
   });
 });

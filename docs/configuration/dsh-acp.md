@@ -44,14 +44,15 @@ dsh --profile acp --help      # 应打印 ACP 说明并退出 0
 
 飞书私聊机器人 → 新建项目 → 选 **DeepSeek Harness** → 绑定目录。
 
-权限档只提供：
+权限档提供：
 
 | 档位 | DSH 模式 | 说明 |
 |---|---|---|
+| 🔒 DSH 只读（弱） | `DSH_PERMISSION_MODE=read-only` | **只挡写**；仍可读工作区外文件、仍可联网。仅建议内部可信群 |
 | ✏️ 项目内读写 | `DSH_PERMISSION_MODE=workspace-write` | 写限制在项目目录；读/网络仍开放 |
 | ⚠️ 完全访问 | `DSH_PERMISSION_MODE=danger-full-access` | 整机读写；仅完全信任的场景 |
 
-**不提供「项目内只读」**：DSH 的 `read-only` 只限制写入，实测仍可读工作区外文件（如 `~/.dsh/.credentials.yaml`）并可联网，无法满足外部群隔离。选择 qa 会在启动前被硬拒绝，不会静默降级。
+DSH 的 `read-only` **不是** bridge 意义上的强只读隔离：实测仍可读工作区外文件（如 `~/.dsh/.credentials.yaml`）并可联网。因此 UI 把它标成 **「DSH 只读（弱）」** 并给出警告；需要真正读隔离时请用 Codex 的 qa 档（macOS 有读限制），或把 DSH 跑进只挂载项目目录、断网的容器/VM。
 
 ---
 
@@ -90,7 +91,7 @@ dsh --profile acp --help      # 应打印 ACP 说明并退出 0
 ## 5. 安全
 
 1. **权限升级默认拒绝**：DSH 在越权时会发 `session/request_permission`。ACP 客户端自动 `allow` 会真的绕过沙箱（实测 read-only + allow-once 可写工作区外）。适配器只发 `reject-once`；不要改成 auto-approve。
-2. **读/网络不隔离**：`workspace-write` 只约束写；读整机文件与联网仍可能。不要把 DSH 接到不可信外部群；需要强隔离时用容器/VM。
+2. **读/网络不隔离**：`read-only` / `workspace-write` 都只约束写；读整机文件与联网仍可能。不要把 DSH 接到不可信外部群；需要强隔离时用 Codex 的 qa 档或容器/VM。
 3. **完全访问 = 整机**：任何能给机器人发消息的人都能以你的身份执行命令；只拉信任的人进群。
 4. **凭据共享**：复用 `~/.dsh` 的登录；与桌面版同时运行通常安全，但避免高频重启造成的刷新竞争。
 

@@ -100,7 +100,7 @@ describe('detectAgents：按 agent 维度分组（codex + DeepSeek Harness）', 
     expect(dsh.installed).toBe(true);
     expect(dsh.backends[0]!.backendId).toBe('dsh-acp');
     expect(dsh.backends[0]!.available).toBe(true);
-    expect(dsh.backends[0]!.supportedModes).toEqual(['write', 'full']);
+    expect(dsh.backends[0]!.supportedModes).toEqual(['qa', 'write', 'full']);
     expect(dsh.backends[0]!.installable).toBe(false);
   });
 

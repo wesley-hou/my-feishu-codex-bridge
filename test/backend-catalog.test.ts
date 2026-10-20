@@ -58,11 +58,11 @@ describe('catalog ↔ REGISTRY 配对（防漏注册）', () => {
     expect(catalogByFamily('deepseek').map((e) => e.id)).toEqual(['dsh-acp']);
   });
 
-  it('DSH 是 external-cli（桌面版/npm 自带 CLI），不可一键下载且只支持 write/full', () => {
+  it('DSH 是 external-cli（桌面版/npm 自带 CLI），不可一键下载；qa 是弱只读', () => {
     const entry = catalogById('dsh-acp')!;
     expect(entry.dep.kind).toBe('external-cli');
     expect(isInstallable(entry)).toBe(false);
-    expect(entry.supportedModes).toEqual(['write', 'full']);
+    expect(entry.supportedModes).toEqual(['qa', 'write', 'full']);
     expect(entry.access).toBe('acp');
   });
 });
@@ -75,8 +75,13 @@ describe('projectCreatableBackends —— 飞书新建/绑定卡的「可选后�
     expect(ids('full', () => false)).toEqual(['codex-appserver']);
   });
 
-  it('qa 档（外部群）→ codex + 已装的 claude-agent（DSH 不支持 qa，天然排除）', () => {
-    expect(ids('qa', () => true)).toEqual(['codex-appserver', 'claude-agent']);
+  it('qa 档（外部群）→ codex + 已装的 claude-agent + DSH（弱只读）', () => {
+    expect(ids('qa', () => true)).toEqual([
+      'codex-appserver',
+      'claude-agent',
+      'dsh-acp',
+    ]);
+    expect(ids('qa', () => false)).toEqual(['codex-appserver']);
   });
 
   it('write/full 档：codex 恒在；claude-agent 与 dsh-acp 仅在「已装」时出现', () => {
@@ -88,8 +93,6 @@ describe('projectCreatableBackends —— 飞书新建/绑定卡的「可选后�
       ]);
       expect(ids(mode, () => false)).toEqual(['codex-appserver']);
     }
-    // qa 下 dsh-acp 永不出现在候选里（supportedModes 不含 qa）。
-    expect(ids('qa', () => true)).not.toContain('dsh-acp');
   });
 });
 

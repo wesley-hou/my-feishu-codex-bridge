@@ -39,8 +39,8 @@ describe('bindModeFor —— 绑定『已有群』按所选后端定档（外部
     expect(bindModeFor('no-such-backend')).toBeUndefined();
   });
 
-  it('dsh-acp（支持 write/full、不支持 qa）→ 优先 write，绝不直接落 full', () => {
-    expect(bindModeFor('dsh-acp')).toBe('write');
+  it('dsh-acp（qa 是弱只读，三档都支持）→ 沿用外部群 qa 默认，不硬推 full', () => {
+    expect(bindModeFor('dsh-acp')).toBeUndefined();
   });
 });
 
