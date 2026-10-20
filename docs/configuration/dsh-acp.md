@@ -83,6 +83,7 @@ dsh --profile acp --help      # 应打印 ACP 说明并退出 0
 | `/usage` 账号额度 | ❌ | 仅 Codex 有该数据；DSH 只有上下文用量 |
 | 自动压缩设置 | — | 项目里的「自动压缩」开关对 DSH 不生效；DSH 内部自行压缩 |
 | 长任务 watchdog | ⚠️ | ACP 只在工具开始/结束时发事件；单条命令超过 idle timeout（默认 120s）且无中间通知时，桥可能判卡死。调大 `runIdleTimeoutSeconds`，或把长任务拆成多步/后台作业 |
+| 进程内存 | ⚠️ | 每个话题一个 `dsh` 进程，实测约 240MB RSS；多话题并发时留意内存 |
 
 ---
 
