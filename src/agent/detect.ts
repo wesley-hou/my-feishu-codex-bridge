@@ -2,14 +2,16 @@ import type { BackendProbe, PermissionMode } from './types';
 import { DEFAULT_BACKEND_ID } from './types';
 import { BACKEND_CATALOG, catalogById, type AgentFamily } from './catalog';
 import { resolveCodexBin, codexVersionAsync } from './codex-appserver/locate';
+import { dshVersionAsync, resolveDshBin } from './dsh-acp/locate';
 
 /**
- * 按 agent 维度检测（backend-detection.md §1）：探底层 agent（当前仅 codex）→ 推导
- * 每个后端的可用性，并据此算「有效默认后端」。后端只是 agent 的「接入方式」——本机
- * 能力面按 agent 组织，与运行时工厂表（REGISTRY）解耦，便于将来再挂新 agent。
+ * 按 agent 维度检测（backend-detection.md §1）：探底层 agent（codex / DeepSeek
+ * Harness）→ 推导每个后端的可用性，并据此算「有效默认后端」。后端只是 agent 的
+ * 「接入方式」——本机能力面按 agent 组织，与运行时工厂表（REGISTRY）解耦，便于将来
+ * 再挂新 agent。
  *
- * 智能默认：有 codex → codex-appserver；否则回退 codex-appserver 占位（doctor 会报
- * 需安装）。
+ * 智能默认：有 codex → codex-appserver；否则有 DSH → dsh-acp；都没有 → codex 占位
+ * （doctor 会报需安装）。
  */
 
 export type AgentId = 'codex' | (string & {});
@@ -62,9 +64,34 @@ async function probeCodexAgent(): Promise<AgentRuntime> {
   };
 }
 
-/** 探全部 agent（当前仅 codex），并行。绝不抛错（各 probe 自身降级）。 */
+/** 探 DeepSeek Harness agent（桌面版自带 CLI / PATH / DSH_BIN）。 */
+async function probeDshAgent(): Promise<AgentRuntime> {
+  const entry = BACKEND_CATALOG.find((e) => e.id === 'dsh-acp')!;
+  const bin = resolveDshBin({ force: true });
+  const version = bin ? await dshVersionAsync(bin, { force: true }) : null;
+  const installed = !!bin && !!version;
+  return {
+    id: 'deepseek',
+    displayName: 'DeepSeek Harness',
+    installed,
+    version,
+    installHint: installed ? undefined : entry.dep.detectHint,
+    backends: [
+      {
+        backendId: 'dsh-acp',
+        available: installed,
+        reason: !bin ? entry.dep.detectHint : !version ? 'dsh --version 失败' : undefined,
+        version,
+        supportedModes: entry.supportedModes,
+        installable: false,
+      },
+    ],
+  };
+}
+
+/** 探全部 agent（codex / DSH），并行。绝不抛错（各 probe 自身降级）。 */
 export async function detectAgents(): Promise<AgentRuntime[]> {
-  return Promise.all([probeCodexAgent()]);
+  return Promise.all([probeCodexAgent(), probeDshAgent()]);
 }
 
 /** 从一次 detectAgents 结果挑默认后端（智能默认规则）。 */
@@ -73,7 +100,8 @@ export function pickDefaultBackend(agents: AgentRuntime[]): string {
     agents.flatMap((a) => a.backends).find((b) => b.backendId === id);
   const pickable = (id: string) => !catalogById(id)?.hidden && find(id)?.available;
   if (pickable('codex-appserver')) return 'codex-appserver';
-  return DEFAULT_BACKEND_ID; // 无 codex → codex 占位（doctor 会报需安装）
+  if (pickable('dsh-acp')) return 'dsh-acp';
+  return DEFAULT_BACKEND_ID; // 都无 → codex 占位（doctor 会报需安装）
 }
 
 /**

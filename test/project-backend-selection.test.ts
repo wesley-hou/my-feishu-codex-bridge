@@ -38,6 +38,10 @@ describe('bindModeFor —— 绑定『已有群』按所选后端定档（外部
   it('未知 / 未注册 id → undefined（catalogById 查不到 ⇒ 不臆造档；落地时 assertBackendUsable 再兜底拒绝）', () => {
     expect(bindModeFor('no-such-backend')).toBeUndefined();
   });
+
+  it('dsh-acp（支持 write/full、不支持 qa）→ 优先 write，绝不直接落 full', () => {
+    expect(bindModeFor('dsh-acp')).toBe('write');
+  });
 });
 
 describe('assertBackendUsable —— 落地前校验「已下载 + 支持该档」（防卡渲染↔提交间卸载竞态）', () => {

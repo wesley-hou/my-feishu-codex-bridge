@@ -52,9 +52,18 @@ describe('catalog ↔ REGISTRY 配对（防漏注册）', () => {
     expect(isInstallable(catalogById('codex-appserver')!)).toBe(false);
   });
 
-  it('catalogByFamily 分组：codex 组 / claude 组各 1 条', () => {
+  it('catalogByFamily 分组：codex / claude / deepseek 各 1 条', () => {
     expect(catalogByFamily('codex').map((e) => e.id)).toEqual(['codex-appserver']);
     expect(catalogByFamily('claude').map((e) => e.id)).toEqual(['claude-agent']);
+    expect(catalogByFamily('deepseek').map((e) => e.id)).toEqual(['dsh-acp']);
+  });
+
+  it('DSH 是 external-cli（桌面版/npm 自带 CLI），不可一键下载且只支持 write/full', () => {
+    const entry = catalogById('dsh-acp')!;
+    expect(entry.dep.kind).toBe('external-cli');
+    expect(isInstallable(entry)).toBe(false);
+    expect(entry.supportedModes).toEqual(['write', 'full']);
+    expect(entry.access).toBe('acp');
   });
 });
 
@@ -66,28 +75,43 @@ describe('projectCreatableBackends —— 飞书新建/绑定卡的「可选后�
     expect(ids('full', () => false)).toEqual(['codex-appserver']);
   });
 
-  it('qa 档（外部群）→ codex + 已装的 claude-agent 都可选（两者都支持 qa 档）', () => {
+  it('qa 档（外部群）→ codex + 已装的 claude-agent（DSH 不支持 qa，天然排除）', () => {
     expect(ids('qa', () => true)).toEqual(['codex-appserver', 'claude-agent']);
   });
 
-  it('任意权限档：codex 恒在；claude-agent 仅在「已装」时出现（按下载态过滤）', () => {
-    for (const mode of ['qa', 'write', 'full'] as const) {
-      expect(ids(mode, () => true)).toEqual(['codex-appserver', 'claude-agent']);
+  it('write/full 档：codex 恒在；claude-agent 与 dsh-acp 仅在「已装」时出现', () => {
+    for (const mode of ['write', 'full'] as const) {
+      expect(ids(mode, () => true)).toEqual([
+        'codex-appserver',
+        'claude-agent',
+        'dsh-acp',
+      ]);
       expect(ids(mode, () => false)).toEqual(['codex-appserver']);
     }
+    // qa 下 dsh-acp 永不出现在候选里（supportedModes 不含 qa）。
+    expect(ids('qa', () => true)).not.toContain('dsh-acp');
   });
 });
 
 describe('可见 catalog 与注册派生（codex + claude-agent）', () => {
-  it('visibleCatalog() 含 codex 与 claude-agent（Web 后端页 / 体检页 / picker 数据源）', () => {
-    expect(visibleCatalog().map((e) => e.id)).toEqual(['codex-appserver', 'claude-agent']);
+  it('visibleCatalog() 含 codex / claude-agent / dsh-acp（Web 后端页 / 体检页 / picker 数据源）', () => {
+    expect(visibleCatalog().map((e) => e.id)).toEqual([
+      'codex-appserver',
+      'claude-agent',
+      'dsh-acp',
+    ]);
   });
 
-  it('catalogBackendIds 与 REGISTRY 配对不破（两条）', () => {
-    expect([...catalogBackendIds()].sort()).toEqual(['claude-agent', 'codex-appserver']);
-    // 工厂存在：两个 id 都能构造出实例。
+  it('catalogBackendIds 与 REGISTRY 配对不破（三条）', () => {
+    expect([...catalogBackendIds()].sort()).toEqual([
+      'claude-agent',
+      'codex-appserver',
+      'dsh-acp',
+    ]);
+    // 工厂存在：三个 id 都能构造出实例。
     expect(createBackend('codex-appserver').id).toBe('codex-appserver');
     expect(createBackend('claude-agent').id).toBe('claude-agent');
+    expect(createBackend('dsh-acp').id).toBe('dsh-acp');
   });
 
   it('createBackend 未注册 id 仍抛错（错误信息含 codex-appserver）', () => {

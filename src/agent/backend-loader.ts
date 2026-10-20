@@ -125,7 +125,9 @@ export function isBackendBinInstalled(binName: string): boolean {
  */
 export function isBackendEntryInstalled(entry: BackendCatalogEntry): boolean {
   const { kind, binName, pkg } = entry.dep;
-  if (kind === 'external-cli') return false;
+  // external-cli: 有 locate 钩子就按它判「本机可跑」；没有则保持旧行为 false
+  // （codex 由 projectCreatableBackends 的默认后端特判兜底）。
+  if (kind === 'external-cli') return entry.dep.locate?.() != null;
   if (binName) return isBackendBinInstalled(binName);
   return pkg ? isBackendDepInstalled(pkg) : false;
 }

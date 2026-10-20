@@ -14,7 +14,7 @@ import type {
   ReactionEvent,
 } from '@larksuiteoapi/node-sdk';
 import { DEFAULT_BACKEND_ID, backendIds, createBackend, isBackendEntryInstalled } from '../agent';
-import { catalogById, projectCreatableBackends, visibleCatalog } from '../agent/catalog';
+import { catalogById, isInstallable, projectCreatableBackends, visibleCatalog } from '../agent/catalog';
 import {
   DEFAULT_PERMISSION_MODE,
   REASONING_EFFORTS,
@@ -383,7 +383,8 @@ function backendOptionsFor(mode: PermissionMode): SelectOption[] {
     .filter((e) => !e.supportedModes || e.supportedModes.includes(mode))
     .map((e) => {
       const installed = e.id === DEFAULT_BACKEND_ID || isBackendEntryInstalled(e);
-      return { label: installed ? e.displayName : `${e.displayName}（未下载·去控制台下载）`, value: e.id };
+      const missing = isInstallable(e) ? '未下载·去控制台下载' : '未安装·去控制台查看';
+      return { label: installed ? e.displayName : `${e.displayName}（${missing}）`, value: e.id };
     });
   // 只剩默认 codex（无真实选择）时不渲染后端区，卡片回到「无后端概念」形态。
   return opts.length > 1 ? opts : [];
@@ -397,7 +398,12 @@ function backendOptionsFor(mode: PermissionMode): SelectOption[] {
  */
 export function bindModeFor(backend?: string): PermissionMode | undefined {
   const modes = backend ? catalogById(backend)?.supportedModes : undefined;
-  if (modes && !modes.includes('qa')) return modes.includes('full') ? 'full' : modes[0];
+  if (modes && !modes.includes('qa')) {
+    // 不支持 qa 的后端：优先中间档 write（项目内读写），不要直接落到 full
+    // ——外部群绑定一个「整机完全访问」后端是危险的。只有确实没有 write 时才 full。
+    if (modes.includes('write')) return 'write';
+    return modes.includes('full') ? 'full' : modes[0];
+  }
   return undefined;
 }
 /** 把卡片提交的 backend 收成安全值：必须是注册表里的 id，否则丢弃（落回默认 codex），防伪造。 */

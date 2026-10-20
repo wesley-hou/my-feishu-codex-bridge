@@ -1,4 +1,5 @@
 import { DEFAULT_BACKEND_ID, type PermissionMode } from './types';
+import { resolveDshBin } from './dsh-acp/locate';
 
 /**
  * 后端 catalog —— 后端的「元数据 + 管理面驱动」单一真源（依赖类型/体积/检测/安装/
@@ -44,6 +45,12 @@ export interface BackendDep {
   approxSizeMB?: number;
   /** 检测/装法的一句话提示（external-cli 探不到、npm-external 未装时给用户）。 */
   detectHint: string;
+  /**
+   * external-cli 的可选定位器：返回可执行文件绝对路径，找不到返回 null。
+   * 提供后 picker/切换校验会把「本机真的能跑」当已装；未提供保持旧行为（恒 false，
+   * codex 这类由默认后端特判兜底）。
+   */
+  locate?: () => string | null;
   /** 安装命令的一句话说明（installable=false 的手动装法 / installable=true 的旁注）。 */
   installCmd?: string;
 }
@@ -113,6 +120,26 @@ export const BACKEND_CATALOG: readonly BackendCatalogEntry[] = [
     // 必须与 ClaudeAgentBackend.supportedModes 完全一致（单测强制）。
     supportedModes: ['qa', 'write', 'full'],
     blurb: 'Claude Code（SDK 内置，复用本机登录；qa/write 走 OS 沙箱，能力较 Codex 精简）',
+  },
+  {
+    id: 'dsh-acp',
+    agentFamily: 'deepseek',
+    displayName: 'DeepSeek Harness',
+    access: 'acp',
+    dep: {
+      kind: 'external-cli',
+      pkg: '@deepseek-ai/dsh',
+      detectHint:
+        '未找到 dsh CLI（装 DeepSeek Harness 桌面版，或 npm i -g @deepseek-ai/dsh，或设 DSH_BIN）',
+      installCmd:
+        '装 DeepSeek Harness 桌面版，或 npm i -g @deepseek-ai/dsh，然后确认 dsh --profile acp --help',
+      locate: () => resolveDshBin(),
+    },
+    // DSH 的 read-only 只限制写入、不限制读取/网络，无法满足 qa 的隔离承诺；
+    // 硬守卫在 DshAcpBackend.startThread/resumeThread（dshPermissionMode 抛错）。
+    supportedModes: ['write', 'full'],
+    blurb:
+      'DeepSeek Harness（ACP；项目内读写/完全访问，复用 DSH 登录；无 goal/steer/compact）',
   },
 ];
 

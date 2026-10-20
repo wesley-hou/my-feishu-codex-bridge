@@ -8,11 +8,11 @@
 
 🌐 **官网：<https://bridge.vonvon.cc>**
 
-> 把飞书 / Lark 桥接到你本机的 [Codex](https://github.com/openai/codex) 或 [Claude Code](https://www.anthropic.com/claude-code)，在群里 @ 机器人就能让它在指定项目目录里干活，结果以流式 Markdown 卡片实时回到群里。
+> 把飞书 / Lark 桥接到你本机的 [Codex](https://github.com/openai/codex)、[Claude Code](https://www.anthropic.com/claude-code) 或 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，在群里 @ 机器人就能让它在指定项目目录里干活，结果以流式 Markdown 卡片实时回到群里。
 >
 > **项目 = 群 = 固定工作目录（cwd）**，**话题（thread）= 一个会话（session）**。
 
-一句话：你在飞书群里发「帮我加个登录接口」，机器人就在这个群绑定的代码目录里跑 Codex / Claude，边跑边把推理、命令、改动、结果更新到一张卡片上；点 ⏹ 可随时终止。
+一句话：你在飞书群里发「帮我加个登录接口」，机器人就在这个群绑定的代码目录里跑 Codex / Claude / DSH，边跑边把推理、命令、改动、结果更新到一张卡片上；点 ⏹ 可随时终止。
 
 > 🎀 **想先看它在飞书里长啥样、能干嘛？** 看这篇图文介绍 👉 [《让 Codex 当你飞书里的同事》](https://my.feishu.cn/docx/AFKNdf4QaooL5OxSR8bc5H7vn7b)
 
@@ -68,7 +68,7 @@ feishu-codex-bridge web
 ## ✨ 特性
 
 - **群 = 项目，话题 = 会话**：每个群绑定一个本地目录；群里 @ 机器人就在该目录跑 agent。对某条消息开话题 = 一条独立连续会话（自动 resume）。
-- **两种后端**：**Codex**（能力最全：goal / steer / compact / resume + 真沙箱只读档）或 **Claude Code**（SDK 内置、复用本机登录、能力较精简）。建项目时按需选，同一台机可混用。
+- **三种后端**：**Codex**（能力最全：goal / steer / compact / resume + 真沙箱只读档）、**Claude Code**（SDK 内置、复用本机登录、能力较精简）或 **DeepSeek Harness**（自带 ACP server，复用 DSH 桌面登录；支持项目内读写/完全访问，无 goal/steer/compact）。建项目时按需选，同一台机可混用。详见 [DSH 后端说明](docs/configuration/dsh-acp.md)。
 - **流式卡片**：思考摘要、进度和工具按时间顺序展示，连续工具分组折叠，展开后查看完整命令。卡片接近容量限制时先省略大段工具输出并保留操作；极端长度下显示明确的省略数量。运行中显示耗时，完成后收起过程、突出回答。⏹ 随时终止，卡死有 watchdog 自动回收。
 - **运行中补充要求**：使用引导（steer）时，消息确认接收后创建新输出卡片，旧卡保留此前内容，后续输出在新卡继续；同一个 agent turn 持续执行。排队模式及不支持 steer 的后端仍在下一轮处理。[行为与验收说明](docs/testing/run-card-steer.md)。
 - **免 @ + 自主目标**：话题 / 单会话群里可直接说话不必每次 @；`/goal <目标>` 让它自主多轮干到完成。
@@ -89,13 +89,13 @@ feishu-codex-bridge web
 
 ### A. 飞书群 → 本机 agent（主用法）
 
-- **建项目**：私聊机器人 → 控制台菜单「新建项目」→ 绑定一个本地目录 → **选后端（Codex / Claude）** → 机器人建好群、置顶命令说明、把你拉进去。
+- **建项目**：私聊机器人 → 控制台菜单「新建项目」→ 绑定一个本地目录 → **选后端（Codex / Claude / DSH）** → 机器人建好群、置顶命令说明、把你拉进去。
 - **两种群按场景选**：
   - **👥 多话题群**：@ 机器人开话题，每个话题是一条**独立会话**（上下文隔离、可并行）。适合多人协作 / 一人并行多任务。
   - **💬 单会话群**：整群就是**一条连续会话**、全程**免 @**。适合个人单线深入、像私聊一样直接聊。
 - **干活**：群里 @ 机器人（或话题内免 @）描述需求，流式卡片回结果；卡片上 ⏹ 随时终止当前轮。
 - **自主目标**：`/goal <目标>` 让它多轮自主执行到完成；运行卡上有 **⏹ 终止**（立刻停）和 **🎯 结束目标**（本轮跑完停）。
-- **斜杠命令**：`/model`、`/resume`、`/compact`、`/context` 等，按所选后端能力自适应裁剪（Claude 不显示它不支持的项）。
+- **斜杠命令**：`/model`、`/resume`、`/compact`、`/context` 等，按所选后端能力自适应裁剪（Claude/DSH 不显示它不支持的项）。
 - **发图 / 附件**：发图片读图、发文件（日志 / PDF / 代码）让 agent 打开分析。
 - **用量**：私聊「用量」看 5h / 7d 限额（剩余 % + 重置时间）与个人统计，一键生成可转发的**战绩分享卡**（数据来自 Codex 个人资料页，需 ChatGPT 登录）。
 

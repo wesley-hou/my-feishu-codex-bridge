@@ -21,30 +21,47 @@ interface Check {
 
 /**
  * `feishu-codex-bridge doctor` — local self-check.
- * M0 scope: codex CLI + login, lark-cli, config presence. Connection/session
- * checks come online once the bridge runs (M1+).
+ * M0 scope: agent CLI + login (codex / DSH), lark-cli, config presence.
+ * Connection/session checks come online once the bridge runs (M1+).
  */
 export async function runDoctor(): Promise<void> {
   const checks: Check[] = [];
 
-  // codex CLI — 经默认后端的 doctor() 探测（M-8：不再深 import codex 探测）
-  const probe = await createBackend().doctor();
-  if (probe.ok) {
-    checks.push({ name: 'codex CLI', ok: true, detail: `${probe.version ?? 'unknown'} (${probe.location ?? '?'})` });
-  } else {
-    checks.push({
-      name: 'codex CLI',
-      ok: false,
-      detail: probe.hint ?? '未找到。设置 CODEX_BIN，或安装 @openai/codex，或装 Codex.app',
-    });
-  }
+  // Agent CLIs — probe both catalog backends. Either one being runnable is
+  // enough; the missing one is a warning, not a hard failure (a DSH-only user
+  // should not see codex as "1 项需处理").
+  const codexProbe = await createBackend().doctor();
+  const dshProbe = await createBackend('dsh-acp').doctor();
+  const anyAgent = codexProbe.ok || dshProbe.ok;
 
-  // codex login (auth file presence — heuristic)
+  checks.push(
+    codexProbe.ok
+      ? { name: 'codex CLI', ok: true, detail: `${codexProbe.version ?? 'unknown'} (${codexProbe.location ?? '?'})` }
+      : {
+          name: 'codex CLI',
+          ok: false,
+          warn: anyAgent,
+          detail: codexProbe.hint ?? '未找到。设置 CODEX_BIN，或安装 @openai/codex，或装 Codex.app',
+        },
+  );
+  checks.push(
+    dshProbe.ok
+      ? { name: 'DSH CLI', ok: true, detail: `${dshProbe.version ?? 'unknown'} (${dshProbe.location ?? '?'})` }
+      : {
+          name: 'DSH CLI',
+          ok: false,
+          warn: anyAgent,
+          detail: dshProbe.hint ?? '未找到。装 DeepSeek Harness 桌面版，或 npm i -g @deepseek-ai/dsh',
+        },
+  );
+
+  // codex login (auth file presence — heuristic). Missing while DSH works is a
+  // warning, since a DSH-only setup does not need the codex login at all.
   const codexAuth = join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'auth.json');
   checks.push(
     existsSync(codexAuth)
       ? { name: 'codex 登录', ok: true, detail: codexAuth }
-      : { name: 'codex 登录', ok: false, detail: '未登录，运行 `codex login`' },
+      : { name: 'codex 登录', ok: false, warn: anyAgent, detail: '未登录，运行 `codex login`' },
   );
 
   // lark-cli
@@ -85,9 +102,10 @@ export async function runDoctor(): Promise<void> {
   // render
   console.log('\n🩺 feishu-codex-bridge 自检\n');
   for (const c of checks) {
-    console.log(`  ${c.ok ? (c.warn ? '⚠️' : '✅') : '❌'} ${c.name.padEnd(12)} ${c.detail}`);
+    const icon = c.ok ? (c.warn ? '⚠️' : '✅') : (c.warn ? '⚠️' : '❌');
+    console.log(`  ${icon} ${c.name.padEnd(12)} ${c.detail}`);
   }
-  const failed = checks.filter((c) => !c.ok).length;
+  const failed = checks.filter((c) => !c.ok && !c.warn).length;
   console.log(`\n${failed === 0 ? '全部通过 ✓' : `${failed} 项需处理`}\n`);
   process.exitCode = failed === 0 ? 0 : 1;
 }

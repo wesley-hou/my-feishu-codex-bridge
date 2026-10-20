@@ -40,8 +40,9 @@ export async function ensureAnyAgent(): Promise<boolean> {
   // 都无：告警但不阻塞。
   const rule = '-'.repeat(64);
   console.error(`\n${rule}`);
-  console.error('⚠️  未检测到可用的 codex 后端——仍会启动，但群里发消息会报后端不可用。');
-  console.error('   装上 codex：npm i -g @openai/codex，然后 codex login');
+  console.error('⚠️  未检测到可用的 codex / DeepSeek Harness 后端——仍会启动，但群里发消息会报后端不可用。');
+  console.error('   装 codex：npm i -g @openai/codex，然后 codex login');
+  console.error('   或装 DSH：DeepSeek Harness 桌面版 / npm i -g @deepseek-ai/dsh');
   console.error('   装好后用 `feishu-codex-bridge doctor` 自检。');
   console.error(`${rule}\n`);
   return true;
